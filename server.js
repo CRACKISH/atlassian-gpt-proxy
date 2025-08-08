@@ -54,6 +54,39 @@ app.get('/jira/search', async (req, res) => {
   }
 });
 
+app.get('/jira/search/full', async (req, res) => {
+  const { jql, maxResults = 100, maxPages = 5 } = req.query;
+
+  if (!jql) {
+    return res.status(400).json({ error: 'Missing JQL query' });
+  }
+
+  let allIssues = [];
+  let startAt = 0;
+
+  try {
+    for (let page = 0; page < maxPages; page++) {
+      const result = await jira.searchJira(jql, {
+        fields: ['summary', 'description', 'assignee', 'status'],
+        maxResults: Number(maxResults),
+        startAt,
+      });
+
+      if (!result.issues || result.issues.length === 0) break;
+
+      allIssues.push(...result.issues);
+      startAt += Number(maxResults);
+
+      if (result.issues.length < maxResults) break; // остання сторінка
+    }
+
+    res.json(allIssues);
+  } catch (err) {
+    console.error('Full Jira search error:', err);
+    res.status(500).json({ error: 'Failed to fetch full issue list' });
+  }
+});
+
 app.get('/jira/issue/:key', async (req, res) => {
   try {
     const issue = await jira.findIssue(req.params.key);
