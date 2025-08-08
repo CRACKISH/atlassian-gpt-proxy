@@ -36,7 +36,7 @@ app.get('/', (req, res) => {
 });
 
 app.get('/jira/search', async (req, res) => {
-  const { jql } = req.query;
+  const { jql, maxResults = 10, startAt = 0 } = req.query;
 
   if (!jql) {
     return res.status(400).json({ error: 'Missing required JQL query' });
@@ -45,11 +45,11 @@ app.get('/jira/search', async (req, res) => {
   try {
     const result = await jira.searchJira(jql, {
       fields: ['summary', 'description', 'assignee', 'status'],
-      maxResults: 10,
+      maxResults: Number(maxResults),
+      startAt: Number(startAt),
     });
     res.json(result.issues);
   } catch (error) {
-    console.error('Jira search error:', error);
     res.status(500).json({ error: 'Failed to search Jira issues' });
   }
 });
@@ -65,28 +65,28 @@ app.get('/jira/issue/:key', async (req, res) => {
 });
 
 app.get('/confluence/search', async (req, res) => {
-  const { cql } = req.query;
+  const { cql, maxResults = 10, startAt = 0 } = req.query;
 
   if (!cql) {
     return res.status(400).json({ error: 'Missing required CQL query' });
   }
 
   try {
-    console.log('Confluence URL:', process.env.CONFLUENCE_URL);
     const response = await axios.get(`${process.env.CONFLUENCE_URL}/rest/api/content/search`, {
-      params: { cql },
+      params: {
+        cql,
+        limit: maxResults,
+        start: startAt,
+      },
       auth: {
         username: process.env.CONFLUENCE_EMAIL,
         password: process.env.CONFLUENCE_API_TOKEN,
       },
-      headers: {
-        Accept: 'application/json',
-      },
+      headers: { Accept: 'application/json' },
     });
 
     res.json(response.data);
   } catch (error) {
-    console.error('Confluence search error:', error);
     res.status(500).json({ error: 'Failed to search Confluence content' });
   }
 });
