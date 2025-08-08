@@ -44,46 +44,20 @@ app.get('/jira/search', async (req, res) => {
 
   try {
     const result = await jira.searchJira(jql, {
-      fields: ['summary', 'description', 'assignee', 'status'],
+      fields: [
+        'summary',
+        'description',
+        'assignee',
+        'status',
+        'customfield_10026',
+        'customfield_10034',
+      ],
       maxResults: Number(maxResults),
       startAt: Number(startAt),
     });
     res.json(result.issues);
   } catch (error) {
     res.status(500).json({ error: 'Failed to search Jira issues' });
-  }
-});
-
-app.get('/jira/search/full', async (req, res) => {
-  const { jql, maxResults = 100, maxPages = 5 } = req.query;
-
-  if (!jql) {
-    return res.status(400).json({ error: 'Missing JQL query' });
-  }
-
-  let allIssues = [];
-  let startAt = 0;
-
-  try {
-    for (let page = 0; page < maxPages; page++) {
-      const result = await jira.searchJira(jql, {
-        fields: ['summary', 'description', 'assignee', 'status'],
-        maxResults: Number(maxResults),
-        startAt,
-      });
-
-      if (!result.issues || result.issues.length === 0) break;
-
-      allIssues.push(...result.issues);
-      startAt += Number(maxResults);
-
-      if (result.issues.length < maxResults) break; // остання сторінка
-    }
-
-    res.json(allIssues);
-  } catch (err) {
-    console.error('Full Jira search error:', err);
-    res.status(500).json({ error: 'Failed to fetch full issue list' });
   }
 });
 
@@ -94,6 +68,25 @@ app.get('/jira/issue/:key', async (req, res) => {
   } catch (err) {
     console.error('Jira page error:', err);
     res.status(500).json({ error: err.toString() });
+  }
+});
+
+app.get('/jira/board/:component/sprints', async (req, res) => {
+  const { component } = req.params;
+
+  try {
+    const boards = await jira.getAllBoards(); // /rest/agile/1.0/board
+    const board = boards.values.find((b) => b.name.toLowerCase().includes(component.toLowerCase()));
+
+    if (!board) {
+      return res.status(404).json({ error: `Board not found for component: ${component}` });
+    }
+
+    const sprints = await jira.getAllSprints(board.id); // /rest/agile/1.0/board/{id}/sprint
+    res.json(sprints.values);
+  } catch (err) {
+    console.error('Board sprint fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch sprints' });
   }
 });
 
