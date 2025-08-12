@@ -2,7 +2,6 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import JiraClient from 'jira-client';
-import Confluence from 'confluence-api';
 import axios from 'axios';
 
 // Load env vars
@@ -24,19 +23,12 @@ const jira = new JiraClient({
   strictSSL: true,
 });
 
-// Init Confluence
-const confluence = new Confluence({
-  username: process.env.CONFLUENCE_EMAIL,
-  password: process.env.CONFLUENCE_API_TOKEN,
-  baseUrl: process.env.CONFLUENCE_URL,
-});
-
 app.get('/', (req, res) => {
   res.send('✅ Atlassian GPT Proxy is running!');
 });
 
 app.get('/jira/search', async (req, res) => {
-  const { jql, maxResults = 10, startAt = 0 } = req.query;
+  const { jql, maxResults = 100, startAt = 0 } = req.query;
 
   if (!jql) {
     return res.status(400).json({ error: 'Missing required JQL query' });
@@ -44,14 +36,7 @@ app.get('/jira/search', async (req, res) => {
 
   try {
     const result = await jira.searchJira(jql, {
-      fields: [
-        'summary',
-        'description',
-        'assignee',
-        'status',
-        'customfield_10026',
-        'customfield_10034',
-      ],
+      fields: ['summary', 'assignee', 'status', 'customfield_10026', 'customfield_10034'],
       maxResults: Number(maxResults),
       startAt: Number(startAt),
     });
@@ -87,6 +72,35 @@ app.get('/jira/board/:component/sprints', async (req, res) => {
   } catch (err) {
     console.error('Board sprint fetch error:', err);
     res.status(500).json({ error: 'Failed to fetch sprints' });
+  }
+});
+
+app.get('/jira/project/:project/components', async (req, res) => {
+  const { project } = req.params;
+  if (!project) {
+    return res.status(400).json({ error: 'Missing project key' });
+  }
+  try {
+    const rawComponents = await jira.listComponents(project);
+
+    const components = Array.isArray(rawComponents)
+      ? rawComponents.map((c) => ({
+          id: c.id,
+          name: c.name,
+          project: c.project,
+        }))
+      : [];
+    res.json(components);
+  } catch (err) {
+    console.error(
+      'List components error:',
+      err.response?.status,
+      err.response?.data || err.message
+    );
+    if (err.response?.status === 404) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+    res.status(500).json({ error: 'Failed to list components' });
   }
 });
 
