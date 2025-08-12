@@ -11,12 +11,13 @@ COPY . .
 ARG PORT=7000
 ENV PORT=${PORT}
 
+# These ARGs/ENVs should be set via GitHub Secrets in CI/CD, not hardcoded
 ARG JIRA_EMAIL
 ARG JIRA_API_TOKEN
 ARG CONFLUENCE_EMAIL
 ARG CONFLUENCE_API_TOKEN
-ARG JIRA_URL=https://creatio.atlassian.net
-ARG CONFLUENCE_URL=https://creatio.atlassian.net/wiki
+ARG JIRA_URL=https://example.atlassian.net
+ARG CONFLUENCE_URL=https://example.atlassian.net/wiki
 
 ENV JIRA_EMAIL=$JIRA_EMAIL
 ENV JIRA_API_TOKEN=$JIRA_API_TOKEN
